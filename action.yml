@@ -1,0 +1,29 @@
+name: 'Build documentation'
+description: 'Build and publish sphinx documentation to an HTML site'
+
+inputs:
+  website_address:
+    description: 'Website address'
+    required: true
+
+  repo:
+    description: 'Repository name'
+    required: true
+
+  title:
+    description: 'Documentation title'
+    required: true
+
+  token:
+    description: 'GitHub Token'
+    required: true  
+
+runs:
+  using: 'docker'
+  image: Dockerfile
+  args:
+    - ${{ inputs.website_address }}
+    - ${{ inputs.repo }}
+    - ${{ inputs.title }}
+  env:
+    GITHUB_TOKEN: ${{ inputs.token }}
