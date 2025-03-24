@@ -1,0 +1,128 @@
+name: Build and publish
+description: Reusable workflow to build and publish documentation
+
+on:
+    workflow_call:
+
+jobs:
+    update-doc:
+        name: Update documentation
+        runs-on: ubuntu-latest
+
+        # set permissions so that we can remove old artifacts and add release artifacts and publish releases
+        permissions:            
+            actions: write
+            contents: write            
+
+        # only build the latest version of a given ref at any given time, abort previous builds if a new one is triggered
+        concurrency:
+            group: build-${{ github.ref_name }}
+            cancel-in-progress: true
+
+        steps:            
+
+            - name: Checkout repository
+              if: github.event_name != 'pull_request' || github.event.action != 'closed' 
+              uses: actions/checkout@v4
+              with:
+                lfs: true
+                submodules: true
+
+            - name: Build documentation
+              if: github.event_name != 'pull_request' || github.event.action != 'closed' 
+              uses: syna-astra-dev/action-doc-publish/actions/doc-build@v2
+
+            - name: Upload documentation artifact for branch
+              if: github.event_name != 'release' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+              uses: actions/upload-artifact@v4
+              with:
+                name: documentation
+                path: _build/html
+
+            - name: Delete stale documentation artifacts
+              if: github.event_name != 'release'
+              uses: syna-astra-dev/action-doc-publish/actions/delete-artifacts@v2              
+        
+            - name: Zip documentation for release
+              if: github.event_name == 'release'
+              working-directory: _build/html
+              shell: bash
+              run: zip -r documentation.zip .
+
+            - name: Add generated documentation to release assets
+              if: github.event_name == 'release'
+              shell: bash
+              run: |
+                curl -L \
+                    -X POST \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "Authorization: Bearer ${{ github.token }}" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    -H "Content-Type: application/octet-stream" \
+                    "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets?name=documentation.zip" \
+                    --data-binary "@_build/html/documentation.zip"
+                
+    update-site:
+        name: Update website
+        runs-on: ubuntu-latest
+        needs: update-doc
+
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}${{ steps.documentation_url.outputs.version_url }}
+
+        # allow only one deployment at a time, make sure all deployments complete to ensure the workflow that triggered
+        # the deployment can detect deployment was successful
+        concurrency:
+            group: publish-site
+
+        # permissions so that we can publish the website and download the artifacts/releases with the documentation versions
+        permissions:
+            contents: read
+            pages: write
+            id-token: write  
+            actions: read
+
+        steps:
+
+            - name: Create site with all versions of the documentation
+              uses: syna-astra-dev/action-doc-publish/actions/doc-create-site@v2
+              id: create_site
+              with:
+                repository: ${{ github.repository }}
+                token: ${{ github.token }}
+
+            - name: Upload GitHub Pages artifact
+              uses: actions/upload-pages-artifact@v3
+              with:
+                path: _build/site/html
+                retention-days: 1   # we can discard the artifacts after the site is published
+
+            - name: Deploy website
+              id: deployment
+              uses: actions/deploy-pages@v4
+
+            - name: Compute URL of documentation
+              id: documentation_url
+              run: |                
+
+                if [[ "${{ github.event_name }}" == "pull_request" ]] ; then
+
+                  if [[ "${{ github.event.action }}" == "closed" ]] ; then                    
+                    # if this is a pull request close event, we need to point to the main website
+                    echo "version_url=" >> $GITHUB_OUTPUT
+                    exit 0
+                  else
+                    # if this is a pull request, we need to use the head branch
+                    BRANCH="${{ github.head_ref }}"
+                  fi
+                  
+                else
+                  # if this is not a pull request, we need to use the current branch
+                  BRANCH="${{ github.ref_name }}"
+                fi
+
+                # the version names do not use slashes, instead they use underscores
+                VERSION_NAME=$(echo "${BRANCH}" | sed 's/\//_/g')
+
+                echo "version_url=v/${VERSION_NAME}" >> $GITHUB_OUTPUT

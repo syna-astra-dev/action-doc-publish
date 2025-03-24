@@ -1,0 +1,19 @@
+name: 'Create site with all documentation versions'
+
+inputs:
+
+  token:
+    description: 'GitHub Token'
+    required: true
+
+  repository:
+    description: 'GitHub Repository'
+    required: true
+
+runs:
+  using: 'docker'  
+  image: docker://ghcr.io/syna-astra-dev/action-doc-publish/create-site:v2
+  env:
+    GITHUB_TOKEN: ${{ inputs.token }}
+    GITHUB_REPOSITORY: ${{ inputs.repository }}
+    WEBSITE_ADDRESS: ${{ inputs.website_address }}

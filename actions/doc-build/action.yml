@@ -1,0 +1,6 @@
+name: 'Build documentation'
+description: 'Build sphinx documentation to an HTML site'
+
+runs:
+  using: 'docker'  
+  image: docker://ghcr.io/syna-astra-dev/synaptics-sphinx-theme/builder:latest

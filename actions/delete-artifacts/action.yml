@@ -1,0 +1,34 @@
+name: 'Delete workflow artifacts for a branch'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Delete all old artifacts for the same branch
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+
+        set -x
+
+        if [[ "${{ github.event_name }}" == "pull_request" ]] ; then
+
+          # if this is a pull request, we need to delete artifacts for the base branch
+          BRANCH="${{ github.head_ref }}"
+
+          # if this is a pull request close event, we need to delete artifacts for the base branch
+          if [[ "${{ github.event.action }}" == "closed" ]] ; then
+            KEEP_SHA=""
+          else
+            KEEP_SHA="${{ github.event.pull_request.head.sha }}" 
+          fi
+
+        else
+
+          # if this is not a pull request, we need to delete artifacts for the current branch
+          BRANCH="${{ github.ref_name }}"
+
+          KEEP_SHA="${{ github.sha}}"
+        fi
+
+        ${{ github.action_path }}/delete-artifacts.sh ${{github.repository}} ${BRANCH} ${KEEP_SHA}
