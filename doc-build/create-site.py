@@ -5,7 +5,7 @@ import shutil
 import http.client
 import json
 import zipfile
-import urllib.request as rq
+import requests
 import argparse
 
 
@@ -57,7 +57,7 @@ def load_version_bar():
 
     return " ".join(version_lines)
 
-def download_releases(repo, cache_directory):
+def download_releases(repo, output_dir):
 
     conn = http.client.HTTPSConnection("api.github.com")
 
@@ -75,39 +75,72 @@ def download_releases(repo, cache_directory):
 
     url = f'/repos/{repo}/releases'
 
-    conn.request("GET", url, headers=headers)
+    response = requests.get(f'https://api.github.com{url}', headers=headers)
 
-    response = conn.getresponse()
-    data = response.read().decode()
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch releases: {response.status_code}, {response.reason}")
 
-    os.makedirs(cache_directory, exist_ok=True)
+    releases = response.json()
 
-    if response.status == 200:
-        releases = json.loads(data)
-        for release in releases:
-            print(f"Release: {release['name']}, Tag: {release['tag_name']}, URL: {release['html_url']}")
-            if os.path.exists("v/" + release['name'][1:]):
-                print("Documentation already downloaded, skipping.")
-                continue
-            if release['assets']:
-                first_asset = release['assets'][0]
-                asset_url = first_asset['browser_download_url']
-                asset_name = first_asset['name']
-                asset_path = 'v/' + asset_name
+    os.makedirs(output_dir, exist_ok=True)
 
-                rq.urlretrieve(asset_url, asset_path)
+    for release in releases:
 
-                if zipfile.is_zipfile(asset_path):
-                    with zipfile.ZipFile(asset_path, 'r') as zip_ref:
-                        zip_ref.extractall(cache_directory)
-                    print(f"Downloaded and decompressed: {asset_name}")
-                else:
-                    print(f"Downloaded: {asset_name} (not a ZIP file)")
-                os.unlink(asset_path)
-    else:
-        print(f"Failed to fetch releases: {response.status}, {response.reason} {data}")
+        print(f"Release: {release['name']}, Tag: {release['tag_name']}, URL: {release['html_url']}")
+        
+        if not release['name'].startswith('v'):
+            raise Exception(f"Release name {release['name']} does not start with 'v'")
 
-    conn.close()
+        version_path = os.path.join(output_dir, release['name'][1:])
+
+        if os.path.exists(version_path):
+            print("Documentation already downloaded, skipping.")
+            continue
+
+        if not release['assets']:
+            continue
+
+        for asset in release['assets']:
+            if asset['name'] == 'documentation.zip':
+                break
+        else:
+            print("No documentation.zip found, skipping.")
+            continue
+        
+        asset_url = f"https://api.github.com/repos/{repo}/releases/assets/{asset['id']}"
+
+        print(f"Downloading: {asset_url}")                
+        
+        asset_headers = {
+            'Accept': 'application/octet-stream',
+            'User-Agent': 'synaptics-astra-ci',
+        }
+
+        if os.environ.get('GITHUB_TOKEN') is None:
+            print("No GITHUB_TOKEN environment variable set, accessing anonymously.")
+        else:
+            print("Using GITHUB_TOKEN for authentication.")
+            asset_headers['Authorization'] = 'Bearer ' + os.environ['GITHUB_TOKEN']
+
+        with requests.get(asset_url, headers=asset_headers, allow_redirects=True) as asset_response:
+    
+            if asset_response.status_code != 200:
+                raise Exception(f"Failed to fetch asset: {asset_response.status_code}, {asset_response.reason}")
+
+            asset_path = os.path.join(output_dir, 'documentation.zip')
+
+            with open(asset_path, 'wb') as out_file:
+                out_file.write(asset_response.content)
+
+            if not zipfile.is_zipfile(asset_path):
+                raise Exception("Downloaded file is not a zip file")
+            
+            with zipfile.ZipFile(asset_path, 'r') as zip_ref:
+                zip_ref.extractall(version_path)
+
+            print(f"Downloaded and decompressed")
+        
+            os.unlink(asset_path)
 
 def get_sorted_versions(base_dir):
     versions = [x for x in os.listdir(base_dir) if x != 'latest' and x != 'git-main']
