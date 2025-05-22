@@ -148,8 +148,10 @@ def fetch_paginate(url):
 
     results = []
 
+    full_url = f'https://api.github.com{url}'
+
     while True:
-        response = requests.get(f'https://api.github.com{url}', headers=headers)
+        response = requests.get(full_url, headers=headers)
 
         if response.status_code != 200:
             raise Exception(f"Failed to fetch page: {response.status_code}, {response.reason}")
@@ -166,7 +168,7 @@ def fetch_paginate(url):
 
         for link in links:
             if 'rel="next"' in link:
-                url = link.split(';')[0].strip()[1:-1]
+                full_url = link.split(';')[0].strip()[1:-1]
                 break
         else:
             break
@@ -238,11 +240,21 @@ def find_title(version_name):
     title = data.split('<title>')[1].split('</title>')[0]
     return title.split('&mdash;')[0]
 
+
 def prepare_version(version_name, latest_version, is_dev, website_address):
     version_dir = os.path.join(VERSIONS_DIR, version_name)
 
     with zipfile.ZipFile(os.path.join(CACHE_DIR, version_name, 'documentation.zip'), 'r') as zip_ref:
         zip_ref.extractall(version_dir)
+
+    # check if the zip contains a directory, in that case move out all the contents and remove the directory
+    files_list = os.listdir(version_dir)
+    if len(files_list) == 1 and os.path.isdir(os.path.join(version_dir, files_list[0])):
+
+        inner_dir = os.path.join(version_dir, files_list[0])
+        for item in os.listdir(inner_dir):
+            shutil.move(os.path.join(inner_dir, item), version_dir)
+        os.rmdir(inner_dir)
 
     title = find_title(version_name)
 
