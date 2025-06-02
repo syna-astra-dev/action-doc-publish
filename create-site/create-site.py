@@ -138,7 +138,17 @@ def get_sorted_versions():
 
     def split_version(version_name):
         parts = re.split(r'(?<=\d)(?=[A-Za-z])|(?<=[A-Za-z])(?=\d)|[._-]', version_name)
-        return [int(part) if part.isnumeric() else part for part in parts]
+
+        splitted_version = []
+
+        for part in parts:
+            # use a tuple to make sure we never compare strings with numbers
+            if part.isnumeric():
+                splitted_version.append((0, int(part)))
+            else:
+                splitted_version.append((1, part))
+
+        return splitted_version
 
     return sorted(versions, key=split_version)
 
