@@ -3,6 +3,24 @@ description: Reusable workflow to build and publish documentation
 
 on:
     workflow_call:
+      inputs:
+        checkout_submodules:
+          description: 'Whether to checkout submodules'
+          type: boolean
+          required: false
+          default: true
+
+        doc_directory:
+          description: 'Directory containing the documentation to build'
+          required: false
+          default: '.'
+          type: string
+
+        update_site:
+          description: 'Whether to update the GitHub Pages site'
+          type: boolean
+          required: false
+          default: true
 
 jobs:
     update-doc:
@@ -26,11 +44,13 @@ jobs:
               uses: actions/checkout@v4
               with:
                 lfs: true
-                submodules: true
+                submodules: ${{ inputs.checkout_submodules }}
 
             - name: Build documentation
               if: github.event_name != 'pull_request' || github.event.action != 'closed' 
-              uses: syna-astra-dev/action-doc-publish/actions/doc-build@v2
+              uses: syna-astra-dev/action-doc-publish/actions/doc-build@v3
+              with:
+                doc_dir: ${{ inputs.doc_directory }}
 
             - name: Upload documentation artifact for branch
               if: github.event_name != 'release' && (github.event_name != 'pull_request' || github.event.action != 'closed')
@@ -41,7 +61,7 @@ jobs:
 
             - name: Delete stale documentation artifacts
               if: github.event_name != 'release'
-              uses: syna-astra-dev/action-doc-publish/actions/delete-artifacts@v2              
+              uses: syna-astra-dev/action-doc-publish/actions/delete-artifacts@v3              
         
             - name: Zip documentation for release
               if: github.event_name == 'release'
@@ -66,6 +86,7 @@ jobs:
         name: Update website
         runs-on: ubuntu-latest
         needs: update-doc
+        if: ${{ inputs.update_site }}
 
         environment:
             name: github-pages
@@ -86,7 +107,7 @@ jobs:
         steps:
 
             - name: Create site with all versions of the documentation
-              uses: syna-astra-dev/action-doc-publish/actions/doc-create-site@v2
+              uses: syna-astra-dev/action-doc-publish/actions/doc-create-site@v3
               id: create_site
               with:
                 repository: ${{ github.repository }}

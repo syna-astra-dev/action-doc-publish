@@ -1,6 +1,13 @@
 name: 'Build documentation'
 description: 'Build sphinx documentation to an HTML site'
 
+inputs:
+  doc_dir:
+    description: 'The directory containing the documentation source files'
+    default: '.'
+
 runs:
   using: 'docker'  
   image: docker://ghcr.io/syna-astra-dev/synaptics-sphinx-theme/builder:latest
+  args:
+    - ${{ inputs.doc_dir }}

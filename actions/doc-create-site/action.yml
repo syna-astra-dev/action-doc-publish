@@ -12,7 +12,7 @@ inputs:
 
 runs:
   using: 'docker'  
-  image: docker://ghcr.io/syna-astra-dev/action-doc-publish/create-site:v2
+  image: docker://ghcr.io/syna-astra-dev/action-doc-publish/create-site:v3
   env:
     GITHUB_TOKEN: ${{ inputs.token }}
     GITHUB_REPOSITORY: ${{ inputs.repository }}
