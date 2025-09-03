@@ -133,8 +133,9 @@ def download_workflow_artifact(repo, workflow_artifact):
 
 
 def get_sorted_versions():
-    
-    versions = [x for x in os.listdir(CACHE_DIR)]
+
+    # find all non-wip versions we downloaded    
+    versions = [x for x in os.listdir(CACHE_DIR) if not x.startswith('wip_')]
 
     def split_version(version_name):
         parts = re.split(r'(?<=\d)(?=[A-Za-z])|(?<=[A-Za-z])(?=\d)|[._-]', version_name)
@@ -390,10 +391,6 @@ def get_version_bar(current_version_name, latest_version, title, website_address
     versions = []    
 
     for version_name in get_sorted_versions():
-
-        # do not put wip versions in the version bar
-        if version_name.startswith('wip_'):
-            continue
 
         version_label = version_name        
 
