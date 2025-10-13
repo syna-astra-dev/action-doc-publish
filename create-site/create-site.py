@@ -185,6 +185,8 @@ def get_workflow_artifacts(repo):
     pages = fetch_paginate(f'/repos/{repo}/actions/artifacts')
     for page in pages:
         for workflow_artifact in page['artifacts']:            
+            if workflow_artifact['expired']:
+                continue
             if workflow_artifact['name'] == 'documentation':
                 yield workflow_artifact
 
