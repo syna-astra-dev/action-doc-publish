@@ -1,4 +1,4 @@
-FROM ubuntu:24.10
+FROM ubuntu:24.04
 
 LABEL org.opencontainers.image.source="https://github.com/syna-astra-dev/action-doc-publish"
 
