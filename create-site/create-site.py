@@ -334,15 +334,16 @@ def create_site():
         if version_name is not None:
             versions.append([version_name, False])
 
-    print("Downloading documentation for branches...")
-    workflow_artifacts = get_workflow_artifacts(repository)
-    workflow_artifacts = get_one_artifact_per_branch(workflow_artifacts)
-    for workflow_artifact in workflow_artifacts:
-        print("Branch: ", workflow_artifact['workflow_run']['head_branch'])                
-        version_name = download_workflow_artifact(repository, workflow_artifact)
+    if os.environ.get('DISABLE_BRANCH_DOCS', '') != 'true':
+        print("Downloading documentation for branches...")
+        workflow_artifacts = get_workflow_artifacts(repository)
+        workflow_artifacts = get_one_artifact_per_branch(workflow_artifacts)
+        for workflow_artifact in workflow_artifacts:
+            print("Branch: ", workflow_artifact['workflow_run']['head_branch'])
+            version_name = download_workflow_artifact(repository, workflow_artifact)
 
-        if version_name is not None:
-            versions.append([version_name, True])
+            if version_name is not None:
+                versions.append([version_name, True])
 
     if os.path.exists(SITE_DIR):
         shutil.rmtree(SITE_DIR)

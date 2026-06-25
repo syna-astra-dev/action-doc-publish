@@ -9,6 +9,11 @@ inputs:
   repository:
     description: 'GitHub Repository'
     required: true
+  
+  disable_branch_docs:
+    description: 'Disable branch documentation'
+    required: false
+    default: 'false'
 
 runs:
   using: 'docker'  
@@ -17,3 +22,4 @@ runs:
     GITHUB_TOKEN: ${{ inputs.token }}
     GITHUB_REPOSITORY: ${{ inputs.repository }}
     WEBSITE_ADDRESS: ${{ inputs.website_address }}
+    DISABLE_BRANCH_DOCS: ${{ inputs.disable_branch_docs }}
